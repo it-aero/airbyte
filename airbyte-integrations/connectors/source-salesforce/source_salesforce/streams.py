@@ -11,7 +11,8 @@ import urllib.parse
 import uuid
 from abc import ABC
 from contextlib import closing
-from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple, Type, Union
+from datetime import timedelta
+from typing import Any, Callable, Iterable, List, Mapping, MutableMapping, Optional, Tuple, Type, Union
 
 import backoff
 import pandas as pd
@@ -19,6 +20,7 @@ import pendulum
 import requests  # type: ignore[import]
 from airbyte_cdk.models import ConfiguredAirbyteCatalog, FailureType, SyncMode
 from airbyte_cdk.sources.streams.availability_strategy import AvailabilityStrategy
+from airbyte_cdk.sources.streams.concurrent.cursor import Cursor
 from airbyte_cdk.sources.streams.concurrent.state_converters.datetime_stream_state_converter import IsoMillisConcurrentStreamStateConverter
 from airbyte_cdk.sources.streams.core import Stream, StreamData
 from airbyte_cdk.sources.streams.http import HttpStream, HttpSubStream
@@ -731,24 +733,41 @@ class IncrementalRestSalesforceStream(RestSalesforceStream, ABC):
         super().__init__(**kwargs)
         self.replication_key = replication_key
         self._stream_slice_step = stream_slice_step
+        self._cursor = None
+
+    @property
+    def cursor(self):
+        if not self._cursor:
+            raise ValueError("Cursor should be set at this point")
+        return self._cursor
+
+    @cursor.setter
+    def cursor(self, cursor: Cursor):
+        self._cursor = cursor
 
     def stream_slices(
         self, *, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
     ) -> Iterable[Optional[Mapping[str, Any]]]:
-        now = pendulum.now(tz="UTC")
-        assert LOOKBACK_SECONDS is not None and LOOKBACK_SECONDS >= 0
-
-        initial_date = self.get_start_date_from_state(stream_state) - pendulum.Duration(seconds=LOOKBACK_SECONDS)
-        slice_start = initial_date
-        while slice_start < now:
-            slice_end = slice_start + self.stream_slice_step
-            self._slice = {
+        for slice_start, slice_end in self._cursor.generate_slices():
+            yield {
                 "start_date": slice_start.isoformat(timespec="milliseconds"),
-                "end_date": min(slice_end, now).isoformat(timespec="milliseconds"),
+                "end_date": slice_end.isoformat(timespec="milliseconds"),
             }
-            yield self._slice
 
-            slice_start += self.stream_slice_step
+        #now = pendulum.now(tz="UTC")
+        #assert LOOKBACK_SECONDS is not None and LOOKBACK_SECONDS >= 0
+
+        #initial_date = self.get_start_date_from_state(stream_state) - pendulum.Duration(seconds=LOOKBACK_SECONDS)
+        #slice_start = initial_date
+        #while slice_start < now:
+        #    slice_end = slice_start + self.stream_slice_step
+        #    self._slice = {
+        #        "start_date": slice_start.isoformat(timespec="milliseconds"),
+        #        "end_date": min(slice_end, now).isoformat(timespec="milliseconds"),
+        #    }
+        #    yield self._slice
+
+        #    slice_start += self.stream_slice_step
 
     @property
     def stream_slice_step(self) -> pendulum.Duration:

@@ -4,7 +4,7 @@
 import functools
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, List, Mapping, MutableMapping, Optional, Protocol, Tuple
+from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Protocol, Tuple
 
 from airbyte_cdk.sources.connector_state_manager import ConnectorStateManager
 from airbyte_cdk.sources.message import MessageRepository
@@ -119,6 +119,7 @@ class ConcurrentCursor(Cursor):
         cursor_field: CursorField,
         slice_boundary_fields: Optional[Tuple[str, str]],
         start: Optional[Any],
+        lookback_window: Any
     ) -> None:
         self._stream_name = stream_name
         self._stream_namespace = stream_namespace
@@ -132,6 +133,7 @@ class ConcurrentCursor(Cursor):
         self._most_recent_record: Optional[Record] = None
         self._has_closed_at_least_one_slice = False
         self.start, self._concurrent_state = self._get_concurrent_state(stream_state)
+        self._lookback_window = lookback_window
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -203,7 +205,7 @@ class ConcurrentCursor(Cursor):
         self._connector_state_manager.update_state_for_stream(
             self._stream_name,
             self._stream_namespace,
-            self._connector_state_converter.convert_to_sequential_state(self._cursor_field, self.state),
+            self._connector_state_converter.convert_to_state_message(self._cursor_field, self.state),
         )
         # TODO: if we migrate stored state to the concurrent state format
         #  (aka stop calling self._connector_state_converter.convert_to_sequential_state`), we'll need to cast datetimes to string or
@@ -229,3 +231,17 @@ class ConcurrentCursor(Cursor):
         called.
         """
         self._emit_state_message()
+
+    def generate_slices(self) -> Iterable[Tuple[Any, Any]]:
+        self._merge_partitions()
+
+        # TODO slice using slice_range
+        # TODO verify slices boundaries and inclusivity
+        if len(self.state["slices"]) == 1:
+            yield self.state["slices"][0][self._connector_state_converter.END_KEY] - self._lookback_window, self._connector_state_converter.max_end
+        elif len(self.state["slices"]) > 1:
+            for i in range(len(self.state["slices"]) - 1):
+                yield self.state["slices"][i][self._connector_state_converter.END_KEY], self.state["slices"][i + 1][self._connector_state_converter.START_KEY]
+            yield self.state["slices"][-1][self._connector_state_converter.END_KEY] - self._lookback_window, self._connector_state_converter.max_end
+        else:
+            raise ValueError("Expected at least one slice")

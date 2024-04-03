@@ -3,7 +3,7 @@
 #
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Iterator, List, Mapping, MutableMapping, Optional, Tuple, Union
 
 import pendulum
@@ -35,7 +35,7 @@ from .streams import (
     Describe,
     IncrementalRestSalesforceStream,
     RestSalesforceStream,
-    RestSalesforceSubStream,
+    RestSalesforceSubStream, LOOKBACK_SECONDS,
 )
 
 _DEFAULT_CONCURRENCY = 10
@@ -242,7 +242,9 @@ class SourceSalesforce(ConcurrentSourceAdapter):
                     cursor_field,
                     self._get_slice_boundary_fields(stream, state_manager),
                     config["start_date"],
+                    timedelta(seconds=LOOKBACK_SECONDS),
                 )
+                stream.cursor = cursor
                 state = cursor.state
 
             configured_streams.append(StreamFacade.create_from_stream(stream, self, logger, state, cursor))

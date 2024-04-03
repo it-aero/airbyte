@@ -736,7 +736,7 @@ class IncrementalRestSalesforceStream(RestSalesforceStream, ABC):
         self._cursor = None
 
     @property
-    def cursor(self):
+    def cursor(self) -> Optional[Cursor]:
         if not self._cursor:
             raise ValueError("Cursor should be set at this point")
         return self._cursor
@@ -748,26 +748,27 @@ class IncrementalRestSalesforceStream(RestSalesforceStream, ABC):
     def stream_slices(
         self, *, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
     ) -> Iterable[Optional[Mapping[str, Any]]]:
-        for slice_start, slice_end in self._cursor.generate_slices():
-            yield {
-                "start_date": slice_start.isoformat(timespec="milliseconds"),
-                "end_date": slice_end.isoformat(timespec="milliseconds"),
-            }
+        if self._cursor:
+            for slice_start, slice_end in self._cursor.generate_slices():
+                yield {
+                    "start_date": slice_start.isoformat(timespec="milliseconds"),
+                    "end_date": slice_end.isoformat(timespec="milliseconds"),
+                }
+        else:
+            now = pendulum.now(tz="UTC")
+            assert LOOKBACK_SECONDS is not None and LOOKBACK_SECONDS >= 0
 
-        #now = pendulum.now(tz="UTC")
-        #assert LOOKBACK_SECONDS is not None and LOOKBACK_SECONDS >= 0
+            initial_date = self.get_start_date_from_state(stream_state) - pendulum.Duration(seconds=LOOKBACK_SECONDS)
+            slice_start = initial_date
+            while slice_start < now:
+                slice_end = slice_start + self.stream_slice_step
+                self._slice = {
+                    "start_date": slice_start.isoformat(timespec="milliseconds"),
+                    "end_date": min(slice_end, now).isoformat(timespec="milliseconds"),
+                }
+                yield self._slice
 
-        #initial_date = self.get_start_date_from_state(stream_state) - pendulum.Duration(seconds=LOOKBACK_SECONDS)
-        #slice_start = initial_date
-        #while slice_start < now:
-        #    slice_end = slice_start + self.stream_slice_step
-        #    self._slice = {
-        #        "start_date": slice_start.isoformat(timespec="milliseconds"),
-        #        "end_date": min(slice_end, now).isoformat(timespec="milliseconds"),
-        #    }
-        #    yield self._slice
-
-        #    slice_start += self.stream_slice_step
+                slice_start += self.stream_slice_step
 
     @property
     def stream_slice_step(self) -> pendulum.Duration:

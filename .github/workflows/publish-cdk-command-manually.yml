@@ -211,7 +211,7 @@ jobs:
       - name: Bump CDK dependency of source-declarative-manifest
         run: |
           cd airbyte-integrations/connectors/source-declarative-manifest
-          poetry add airbyte-cdk==${{needs.bump-version.outputs.new_cdk_version}}
+          poetry add airbyte-cdk==0.77.0
       - name: Bump version of source-declarative-manifest
         uses: ./.github/actions/run-airbyte-ci
         with:

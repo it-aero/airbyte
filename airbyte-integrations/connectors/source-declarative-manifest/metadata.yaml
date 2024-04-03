@@ -7,7 +7,7 @@ data:
   connectorSubtype: api
   connectorType: source
   definitionId: 64a2f99c-542f-4af8-9a6f-355f1217b436
-  dockerImageTag: 0.78.6
+  dockerImageTag: 1.0.0
   dockerRepository: airbyte/source-declarative-manifest
   documentationUrl: https://docs.airbyte.com/integrations/sources/low-code
   githubIssueLabel: source-declarative-manifest

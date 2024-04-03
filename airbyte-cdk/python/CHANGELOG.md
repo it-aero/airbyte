@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.0
+testing, this shouldn't publish
+
 ## 0.78.6
 low-code: add backward compatibility for old close slice behavior 
 

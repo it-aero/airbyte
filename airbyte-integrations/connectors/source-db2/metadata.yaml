@@ -4,9 +4,9 @@ data:
       - ${host}
   connectorSubtype: database
   connectorType: source
-  definitionId: 447e0381-3780-4b46-bb62-00a4e3c8b8e2
+  definitionId: 447e0381-3780-4b46-bb62-00a4e3c8b8e3
   dockerImageTag: 0.2.2
-  dockerRepository: airbyte/source-db2
+  dockerRepository: it-aero/airbyte/source-db2
   githubIssueLabel: source-db2
   icon: db2.svg
   license: MIT

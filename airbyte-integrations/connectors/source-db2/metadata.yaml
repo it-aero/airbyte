@@ -10,7 +10,7 @@ data:
   githubIssueLabel: source-db2
   icon: db2.svg
   license: MIT
-  name: IBM Db2
+  name: IBM Db2 (AERO Custom)
   registries:
     cloud:
       enabled: false # Would require DEPLOYMENT_MODE=cloud handling to release to cloud again

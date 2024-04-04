@@ -51,6 +51,7 @@ TEST_GRADLE_DEPENDENCIES = [
 
 def download_catalog(catalog_url):
     response = requests.get(catalog_url)
+    response.raise_for_status()
     return response.json()
 
 
@@ -554,6 +555,20 @@ class Connector:
     @property
     def is_using_poetry(self) -> bool:
         return Path(self.code_directory / "pyproject.toml").exists()
+
+    @property
+    def is_released(self) -> bool:
+        metadata = self.metadata
+        in_registry = False
+        registry = download_catalog(OSS_CATALOG_URL)
+        for connector in registry[f"{self.connector_type}s"]:
+            if (
+                connector[f"{self.connector_type}DefinitionId"] == metadata["definitionId"]
+                and connector["dockerImageTag"] == metadata["dockerImageTag"]
+            ):
+                in_registry = True
+                break
+        return in_registry
 
     def get_secret_manager(self, gsm_credentials: str):
         return SecretsManager(connector_name=self.technical_name, gsm_credentials=gsm_credentials)
